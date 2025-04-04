@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grocery Inventory Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-5">
+    <h1 class="mb-4">Grocery Inventory Management</h1>
+
+    <div class="card mb-4">
+        <div class="card-header" id="productFormHeader">Add Product</div>
+        <div class="card-body">
+            <form id="productForm">
+                <input type="hidden" id="productId">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Product Name</label>
+                        <input type="text" id="productName" class="form-control" placeholder="Enter product name" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Category</label>
+                        <select id="productCategory" class="form-select">
+                            <option value="Uncategorized">Uncategorized</option>
+                            <option value="Dairy">Dairy</option>
+                            <option value="Produce">Produce</option>
+                            <option value="Bakery">Bakery</option>
+                            <option value="Meat">Meat</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Manufacturing Date</label>
+                        <input type="date" id="manufacturingDate" class="form-control" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Expiry Date</label>
+                        <input type="date" id="expiryDate" class="form-control" required>
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label">Quantity</label>
+                        <input type="number" id="quantity" class="form-control" placeholder="Qty" required>
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label">Price (₹)</label>
+                        <input type="number" id="price" class="form-control" placeholder="Price" step="0.01">
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100" id="submitButton">Add</button>
+                        <button type="button" class="btn btn-secondary w-100 d-none" id="cancelEditButton">Cancel</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            Product List
+            <div>
+                <button class="btn btn-warning me-2" onclick="checkExpiry()">Check Expiry</button>
+                <select id="categoryFilter" class="form-select w-auto d-inline-block">
+                    <option value="">All Categories</option>
+                    <option value="Uncategorized">Uncategorized</option>
+                    <option value="Dairy">Dairy</option>
+                    <option value="Produce">Produce</option>
+                    <option value="Bakery">Bakery</option>
+                    <option value="Meat">Meat</option>
+                </select>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Category</th>
+                            <th>Manufacturing Date</th>
+                            <th>Expiry Date</th>
+                            <th>Quantity</th>
+                            <th>Price (₹)</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Set default dates
+    document.addEventListener('DOMContentLoaded', () => {
+        const today = new Date();
+        const manufacturingDateInput = document.getElementById('manufacturingDate');
+        const expiryDateInput = document.getElementById('expiryDate');
+
+        // Set manufacturing date to today
+        manufacturingDateInput.valueAsDate = today;
+
+        // Set expiry date to 30 days from today
+        const expiryDate = new Date(today);
+        expiryDate.setDate(today.getDate() + 30);
+        expiryDateInput.valueAsDate = expiryDate;
+    });
+
+    // Product Form Submission Handler
+    document.getElementById('productForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const productId = document.getElementById('productId').value;
+        
+        if (productId) {
+            // Edit existing product
+            editProduct(productId);
+        } else {
+            // Add new product
+            addProduct();
+        }
+    });
+
+    function addProduct() {
+        // Collect form data
+        const name = document.getElementById("productName").value;
+        const category = document.getElementById("productCategory").value;
+        const manufacturingDate = document.getElementById("manufacturingDate").value;
+        const expiryDate = document.getElementById("expiryDate").value;
+        const quantity = document.getElementById("quantity").value;
+        const price = document.getElementById("price").value || 0;
+
+        // Basic validation
+        if (!name || !manufacturingDate || !expiryDate || !quantity) {
+            alert("Please fill in all required fields.");
+            return;
+        }
+
+        // Prepare data for submission
+        const productData = {
+            name, 
+            category, 
+            manufacturing_date: manufacturingDate, 
+            expiry_date: expiryDate, 
+            quantity, 
+            price
+        };
+
+        // Send product data to server
+        fetch('/add_product', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(productData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Reset form
+                resetProductForm();
+                
+                // Refresh product list
+                fetchProducts();
+                
+                // Show success message
+                alert(data.message);
+            } else {
+                // Show error message
+                alert(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while adding the product.');
+        });
+    }
+
+    function editProduct(productId) {
+        // Collect form data
+        const name = document.getElementById("productName").value;
+        const category = document.getElementById("productCategory").value;
+        const manufacturingDate = document.getElementById("manufacturingDate").value;
+        const expiryDate = document.getElementById("expiryDate").value;
+        const quantity = document.getElementById("quantity").value;
+        const price = document.getElementById("price").value || 0;
+
+        // Basic validation
+        if (!name || !manufacturingDate || !expiryDate || !quantity) {
+            alert("Please fill in all required fields.");
+            return;
+        }
+
+        // Prepare data for submission
+        const productData = {
+            name, 
+            category, 
+            manufacturing_date: manufacturingDate, 
+            expiry_date: expiryDate, 
+            quantity, 
+            price
+        };
+
+        // Send product data to server
+        fetch(`/edit_product/${productId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(productData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Reset form
+                resetProductForm();
+                
+                // Refresh product list
+                fetchProducts();
+                
+                // Show success message
+                alert(data.message);
+            } else {
+                // Show error message
+                alert(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while editing the product.');
+        });
+    }
+
+    function prepareEditForm(product) {
+        // Populate form with product details
+        document.getElementById('productId').value = product.id;
+        document.getElementById('productName').value = product.name;
+        document.getElementById('productCategory').value = product.category;
+        document.getElementById('manufacturingDate').value = product.manufacturing_date;
+        document.getElementById('expiryDate').value = product.expiry_date;
+        document.getElementById('quantity').value = product.quantity;
+        document.getElementById('price').value = product.price;
+
+        // Change form header and button
+        document.getElementById('productFormHeader').textContent = 'Edit Product';
+        document.getElementById('submitButton').textContent = 'Update';
+        document.getElementById('cancelEditButton').classList.remove('d-none');
+    }
+
+    function resetProductForm() {
+        // Reset form fields
+        document.getElementById('productId').value = '';
+        document.getElementById('productName').value = '';
+        document.getElementById('quantity').value = '';
+        document.getElementById('price').value = '';
+
+        // Reset form header and button
+        document.getElementById('productFormHeader').textContent = 'Add Product';
+        document.getElementById('submitButton').textContent = 'Add';
+        document.getElementById('cancelEditButton').classList.add('d-none');
+
+        // Reset date inputs to defaults
+        const today = new Date();
+        const manufacturingDateInput = document.getElementById('manufacturingDate');
+        const expiryDateInput = document.getElementById('expiryDate');
+
+        manufacturingDateInput.valueAsDate = today;
+        const expiryDate = new Date(today);
+        expiryDate.setDate(today.getDate() + 30);
+        expiryDateInput.valueAsDate = expiryDate;
+    }
+
+    // Cancel Edit Button
+    document.getElementById('cancelEditButton').addEventListener('click', resetProductForm);
+
+    function fetchProducts() {
+        // Get selected category filter
+        const categoryFilter = document.getElementById('categoryFilter').value;
+
+        // Fetch products from server
+        fetch(`/get_products?category=${categoryFilter}`)
+        .then(response => response.json())
+        .then(products => {
+            const tableBody = document.getElementById('productTable');
+            
+            // Clear existing table rows
+            tableBody.innerHTML = '';
+
+            // Populate table with products
+            products.forEach(product => {
+                const row = `
+                    <tr>
+                        <td>${product.name}</td>
+                        <td>${product.category}</td>
+                        <td>${product.manufacturing_date}</td>
+                        <td>${product.expiry_date}</td>
+                        <td>${product.quantity}</td>
+                        <td>₹${parseFloat(product.price).toFixed(2)}</td>
+                        <td>
+                            <button class="btn btn-primary btn-sm me-1" onclick='prepareEditForm(${JSON.stringify(product)})'>Edit</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteProduct(${product.id})">Delete</button>
+                        </td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching products:', error);
+            alert('An error occurred while fetching products.');
+        });
+    }
+
+    function deleteProduct(productId) {
+        fetch(`/delete_product/${productId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Refresh product list
+                fetchProducts();
+                alert(data.message);
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting product:', error);
+            alert('An error occurred while deleting the product.');
+        });
+    }
+
+    function checkExpiry() {
+        fetch('/check_expiry')
+        .then(response => response.json())
+        .then(data => {
+            let alertMessage = '';
+
+            if (data.expiring_soon.length > 0) {
+                alertMessage += 'Expiring Soon:\n';
+                data.expiring_soon.forEach(product => {
+                    alertMessage += `${product.name} - ${product.days_left} days left\n`;
+                });
+            }
+
+            if (data.low_stock.length > 0) {
+                alertMessage += '\nLow Stock:\n';
+                data.low_stock.forEach(product => {
+                    alertMessage += `${product.name} - ${product.quantity} remaining\n`;
+                });
+            }
+
+            if (alertMessage) {
+                // Voice alert
+                const utterance = new SpeechSynthesisUtterance(alertMessage);
+                window.speechSynthesis.speak(utterance);
+                
+                // Visual alert
+                alert(alertMessage);
+            } else {
+                alert('No products expiring soon or low on stock.');
+            }
+        })
+        .catch(error => {
+            console.error('Error checking expiry:', error);
+            alert('An error occurred while checking product expiry.');
+        });
+    }
+
+    // Event listener for category filter
+    document.getElementById('categoryFilter').addEventListener('change', fetchProducts);
+
+    // Fetch products when page loads
+    document.addEventListener('DOMContentLoaded', fetchProducts);
+</script>
+</body>
+</html>
